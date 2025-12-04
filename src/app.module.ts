@@ -9,6 +9,7 @@ import { GoalsModule } from './goals/goals.module';
 import { PrismaModule } from './database/database.module';
 import { ProfileModule } from './profile/profile.module';
 import { EmailModule } from './email/email.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { EmailModule } from './email/email.module';
     GoalsModule,
     ProfileModule,
     EmailModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
