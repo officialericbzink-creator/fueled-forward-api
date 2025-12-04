@@ -15,25 +15,31 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  name            String
-  email           String
-  emailVerified   Boolean
-  image           String?
-  createdAt       DateTime
-  updatedAt       DateTime
-  role            String?
-  banned          Boolean?
-  banReason       String?
-  banExpires      DateTime?
-  username        String?
-  displayUsername String?
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String
+  emailVerified        Boolean
+  image                String?
+  createdAt            DateTime
+  updatedAt            DateTime
+  role                 String?
+  banned               Boolean?
+  banReason            String?
+  banExpires           DateTime?
+  username             String?
+  displayUsername      String?
+  localSecurityEnabled Boolean   @default(false)
 
   completedOnboarding Boolean @default(false)
-  onboardingStep      String?
+  onboardingStep      Int     @default(0)
 
-  sessions Session[]
-  accounts Account[]
+  sessions     Session[]
+  accounts     Account[]
+  checkIns     CheckIn[]
+  dailyGoals   DailyGoal[]
+  profile      Profile?
+  pushTokens   PushToken[]
+  conversation Conversation?
 
   @@map("user")
 }
@@ -84,4 +90,113 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+}
+
+model CheckIn {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime
+  overallMood Float
+  completed   Boolean  @default(false)
+  steps       Json // Type: Array<{step: number, mood: number, notes: string}>
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
+  @@map("check_ins")
+}
+
+model DailyGoal {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal        String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, completed, createdAt])
+  @@index([userId, completedAt])
+  @@map("daily_goals")
+}
+
+model Profile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  bio               String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  struggles         String[]
+  struggleTimestamp DateTime?
+  struggleNotes     String?
+  inTherapy         Boolean   @default(false)
+  therapyDetails    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  device    String   @unique
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("push_tokens")
+}
+
+model Conversation {
+  id     String @id @default(cuid())
+  userId String @unique // One conversation per user
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  totalMessages   Int       @default(0)
+  totalTokensUsed Int       @default(0)
+  lastMessageAt   DateTime?
+
+  // Soft delete
+  clearedAt DateTime? // Messages before this timestamp are "deleted"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  @@map("conversations")
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    ChatRole
+  content String
+
+  // Token tracking
+  inputTokens  Int? // Tokens sent to Claude (for this message)
+  outputTokens Int? // Tokens received from Claude (for assistant messages)
+  cachedTokens Int? // Tokens that were cached (prompt caching)
+
+  // Audit/context tracking (optional, for debugging)
+  contextSnapshot Json? // What profile/checkin data was used
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
 }
