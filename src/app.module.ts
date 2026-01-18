@@ -10,6 +10,7 @@ import { PrismaModule } from './database/database.module';
 import { ProfileModule } from './profile/profile.module';
 import { EmailModule } from './email/email.module';
 import { ChatModule } from './chat/chat.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ChatModule } from './chat/chat.module';
     ProfileModule,
     EmailModule,
     ChatModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

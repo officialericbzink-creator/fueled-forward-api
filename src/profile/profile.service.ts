@@ -9,6 +9,7 @@ import {
   OnboardingStep4Dto,
   OnboardingStep5Dto,
 } from './dto/onboarding-step.dto';
+import { User } from 'generated/prisma';
 
 @Injectable()
 export class ProfileService {
@@ -19,6 +20,45 @@ export class ProfileService {
       where: { id: userId },
       include: { profile: true },
     });
+  }
+
+  async updateProfile(
+    userId: string,
+    data: {
+      name?: string;
+      image?: string;
+      profile?: {
+        bio?: string;
+        struggles?: string[];
+        inTherapy?: boolean;
+        therapyDetails?: string;
+        struggleNotes?: string;
+      };
+    },
+  ) {
+    const userUpdateData: Partial<User> = {};
+    if (data.name !== undefined) userUpdateData.name = data.name;
+    if (data.image !== undefined) userUpdateData.image = data.image;
+
+    if (Object.keys(userUpdateData).length > 0) {
+      await this.db.user.update({
+        where: { id: userId },
+        data: userUpdateData,
+      });
+    }
+
+    if (data.profile && Object.keys(data.profile).length > 0) {
+      await this.db.profile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          ...data.profile,
+        },
+        update: data.profile,
+      });
+    }
+
+    return { success: true };
   }
 
   async getOnboardingStatus(userId: string) {
