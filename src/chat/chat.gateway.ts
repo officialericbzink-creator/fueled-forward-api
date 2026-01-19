@@ -32,6 +32,10 @@ export class ChatGateway
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
+  private userMessageCounts = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
 
   constructor(private readonly aiChatService: AIChatService) {}
 
@@ -91,6 +95,28 @@ export class ChatGateway
     );
   }
 
+  private checkRateLimit(userId: string): boolean {
+    const now = Date.now();
+    const userLimit = this.userMessageCounts.get(userId);
+
+    if (!userLimit || now > userLimit.resetAt) {
+      // Reset counter every minute
+      this.userMessageCounts.set(userId, {
+        count: 1,
+        resetAt: now + 60000, // 1 minute
+      });
+      return true;
+    }
+
+    if (userLimit.count >= 10) { // Max 10 messages per minute
+      return false;
+    }
+
+    userLimit.count++;
+    return true;
+  }
+}
+
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @MessageBody() data: SendMessageDto,
@@ -98,6 +124,10 @@ export class ChatGateway
   ) {
     try {
       const { userId, message } = data;
+
+      if (!this.checkRateLimit(userId)) {
+        throw new WsException('Too many messages. Please wait a moment.');
+      }
 
       if (userId !== client.data.userId) {
         throw new WsException('Unauthorized: userId mismatch');

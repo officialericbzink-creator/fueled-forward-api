@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, UseGuards } from '@nestjs/common';
 import {
   AuthGuard,
   Session,
@@ -14,5 +14,10 @@ export class ChatController {
   @Get('conversation')
   async getConversation(@Session() session: UserSession) {
     return this.aiChatService.getConversationHistory(session.user.id);
+  }
+
+  @Delete('clear-conversation')
+  async clearConversation(@Session() session: UserSession) {
+    return this.aiChatService.clearConversationHistory(session.user.id);
   }
 }

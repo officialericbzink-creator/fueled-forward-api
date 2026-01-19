@@ -13,8 +13,6 @@ export const auth = betterAuth({
   },
   trustedOrigins: [
     'fueled-forward-app://',
-    'fueled-forward-app-dev://',
-    'fueled-forward-app-preview://',
     'https://auth.fueledforwardapp.com',
   ],
   database: prismaAdapter(prisma, {
