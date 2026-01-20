@@ -108,14 +108,14 @@ export class ChatGateway
       return true;
     }
 
-    if (userLimit.count >= 10) { // Max 10 messages per minute
+    if (userLimit.count >= 10) {
+      // Max 10 messages per minute
       return false;
     }
 
     userLimit.count++;
     return true;
   }
-}
 
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
