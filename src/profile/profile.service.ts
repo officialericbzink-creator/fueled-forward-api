@@ -117,8 +117,6 @@ export class ProfileService {
       );
     }
 
-    console.log({ data });
-
     switch (step) {
       case 0:
         await this.handleStep0(userId, data as OnboardingStep0Dto);
@@ -135,15 +133,15 @@ export class ProfileService {
       case 4:
         await this.handleStep4(userId, data as OnboardingStep4Dto);
         break;
-      case 5:
-        await this.handleStep5(userId, data as OnboardingStep5Dto);
-        break;
+      // case 5:
+      //   await this.handleStep5(userId, data as OnboardingStep5Dto);
+      //   break;
       default:
         throw new BadRequestException('Invalid step');
     }
 
     // Always move to next step after submission
-    const nextStep = Math.min(step + 1, 5);
+    const nextStep = Math.min(step + 1, 4);
 
     // Only update DB if we're at or past the current saved step
     if (nextStep > user.onboardingStep) {
@@ -251,12 +249,10 @@ export class ProfileService {
       throw new BadRequestException('Onboarding already completed');
     }
 
-    if (user.onboardingStep < 5) {
-      console.log('All steps must be complete');
-      throw new BadRequestException('All onboarding steps must be completed');
-    }
-
-    console.log('completing onboarding for userId', userId);
+    // if (user.onboardingStep < 5) {
+    //   console.log('All steps must be complete');
+    //   throw new BadRequestException('All onboarding steps must be completed');
+    // }
 
     await this.db.user.update({
       where: { id: userId },

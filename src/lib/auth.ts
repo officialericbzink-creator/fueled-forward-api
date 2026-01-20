@@ -12,7 +12,9 @@ export const auth = betterAuth({
     useSecureCookies: process.env.NODE_ENV === 'production',
   },
   trustedOrigins: [
-    'fueled-forward-app://',
+    'fueled-forward-app://', // Production
+    'fueled-forward-app-preview://', // Preview
+    'fueled-forward-app-dev://', // Development
     'https://auth.fueledforwardapp.com',
   ],
   database: prismaAdapter(prisma, {
