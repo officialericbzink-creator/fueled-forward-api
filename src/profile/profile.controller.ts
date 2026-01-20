@@ -8,7 +8,10 @@ import {
   Param,
   ParseIntPipe,
   BadRequestException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   AuthGuard,
   Session,
@@ -27,11 +30,15 @@ import {
   OnboardingStepResponse,
   OnboardingStatusResponse,
 } from './dto/onboarding-response.dto';
+import { MediaService } from 'src/media/media.service';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly mediaService: MediaService,
+  ) {}
 
   @Get('me')
   async getProfile(@Session() session: UserSession) {
@@ -39,13 +46,54 @@ export class ProfileController {
   }
 
   @Post('update')
-  async updateProfile() {
-    // Logic to update profile
+  async updateProfile(
+    @Session() session: UserSession,
+    @Body()
+    data: {
+      name?: string;
+      image?: string;
+      profile?: {
+        bio?: string;
+        struggles?: string[];
+        inTherapy?: boolean;
+        therapyDetails?: string;
+        struggleNotes?: string;
+      };
+    },
+  ) {
+    return this.profileService.updateProfile(session.user.id, data);
   }
 
   @Post('avatar')
-  async updateAvatar() {
-    // Logic to update avatar
+  @UseInterceptors(FileInterceptor('file'))
+  async updateAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @Session() session: UserSession,
+  ) {
+    try {
+      const key = this.mediaService.generateAvatarKey(
+        session.user.id,
+        file.originalname,
+      );
+      const url = await this.mediaService.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
+
+      await this.profileService.updateProfile(session.user.id, { image: url });
+      return {
+        success: true,
+        data: {
+          key,
+          url,
+          type: 'AVATAR',
+          userId: session.user.id,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Avatar upload failed: ${error.message}`);
+    }
   }
 
   @Post('onboarding/complete')

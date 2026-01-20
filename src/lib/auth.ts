@@ -11,7 +11,10 @@ export const auth = betterAuth({
     disableOriginCheck: process.env.NODE_ENV !== 'production',
     useSecureCookies: process.env.NODE_ENV === 'production',
   },
-  trustedOrigins: ['fueled-forward-app://'],
+  trustedOrigins: [
+    'fueled-forward-app://',
+    'https://auth.fueledforwardapp.com',
+  ],
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
@@ -42,14 +45,14 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
-    sendResetPassword: async ({ url, user, token }, request) => {},
+    requireEmailVerification: false,
+    // sendResetPassword: async ({ url, user, token }, request) => {},
   },
   emailVerification: {
-    sendOnSignUp: true,
+    sendOnSignUp: false,
     expiresIn: 1000 * 60 * 60 * 24,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url, token }, request) => {},
+    // sendVerificationEmail: async ({ user, url, token }, request) => {},
   },
   plugins: [
     expo(),
