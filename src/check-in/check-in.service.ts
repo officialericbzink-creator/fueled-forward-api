@@ -5,33 +5,30 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-// import { CheckIn } from 'generated/prisma';
 import { PrismaService } from 'src/database/database.service';
 import {
   CheckInHistoryResponse,
   CheckInResponse,
   CheckInStepResponse,
 } from './dto/check-in-response.dto';
-import { CheckInStepDto, CreateCheckInDto } from './dto/create-check-in.dto';
+import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { Prisma } from 'generated/prisma';
-type Data = {
-  userId: string;
-  date: string;
-  completed: true;
-  steps: { step: number; mood: number; notes?: string }[];
-};
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { startOfDay, endOfDay } from 'date-fns';
+
 @Injectable()
 export class CheckInService {
   constructor(private readonly db: PrismaService) {}
 
   async getCheckInHistory(
     userId: string,
+    timezone: string,
     limit = 30,
   ): Promise<CheckInHistoryResponse[]> {
     const checkIns = await this.db.checkIn.findMany({
       where: { userId },
       take: limit,
-      orderBy: { date: 'asc' },
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         date: true,
@@ -48,16 +45,22 @@ export class CheckInService {
     }));
   }
 
-  async getTodaysCheckIn(userId: string): Promise<CheckInResponse | null> {
-    const today = this.getStartOfDay(new Date());
+  async getTodaysCheckIn(
+    userId: string,
+    timezone: string,
+  ): Promise<CheckInResponse | null> {
+    const { startOfDay: start, endOfDay: end } =
+      this.getTodayInTimezone(timezone);
 
-    const checkIn = await this.db.checkIn.findUnique({
+    const checkIn = await this.db.checkIn.findFirst({
       where: {
-        userId_date: {
-          userId,
-          date: today,
+        userId,
+        createdAt: {
+          gte: start,
+          lt: end,
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!checkIn) {
@@ -70,14 +73,16 @@ export class CheckInService {
     };
   }
 
-  async hasCheckedInToday(userId: string): Promise<boolean> {
-    const today = this.getStartOfDay(new Date());
+  async hasCheckedInToday(userId: string, timezone: string): Promise<boolean> {
+    const { startOfDay: start, endOfDay: end } =
+      this.getTodayInTimezone(timezone);
 
-    const checkIn = await this.db.checkIn.findUnique({
+    const checkIn = await this.db.checkIn.findFirst({
       where: {
-        userId_date: {
-          userId,
-          date: today,
+        userId,
+        createdAt: {
+          gte: start,
+          lt: end,
         },
       },
       select: { id: true },
@@ -99,7 +104,6 @@ export class CheckInService {
       throw new NotFoundException(`Check-in with ID ${id} not found`);
     }
 
-    // ✅ Transform JsonValue to proper type
     return {
       ...checkIn,
       steps: checkIn.steps as unknown as CheckInStepResponse[],
@@ -109,6 +113,7 @@ export class CheckInService {
   async createCheckIn(
     userId: string,
     dto: CreateCheckInDto,
+    timezone: string,
   ): Promise<CheckInResponse> {
     if (dto.steps.length !== 5) {
       throw new BadRequestException('Check-in must include all 5 steps');
@@ -122,8 +127,26 @@ export class CheckInService {
       );
     }
 
+    // Validate they haven't already checked in today
+    const hasCheckedIn = await this.hasCheckedInToday(userId, timezone);
+    if (hasCheckedIn) {
+      throw new ConflictException('You have already checked in today');
+    }
+
+    // Validate the submitted date is "today" in their timezone
+    const { startOfDay: start, endOfDay: end } =
+      this.getTodayInTimezone(timezone);
+    const submittedDate = new Date(dto.date);
+
+    if (submittedDate < start || submittedDate >= end) {
+      throw new BadRequestException('Check-in date must be today');
+    }
+
     const overallMood = this.calculateOverallMood(dto.steps);
-    const checkInDate = this.getStartOfDay(new Date(dto.date));
+
+    // Store the date field as start of day in user's timezone, converted to UTC
+    const userLocalTime = toZonedTime(new Date(), timezone);
+    const checkInDate = fromZonedTime(startOfDay(userLocalTime), timezone);
 
     try {
       const checkIn = await this.db.checkIn.create({
@@ -153,16 +176,52 @@ export class CheckInService {
     }
   }
 
+  /**
+   * Get today's date range in the user's timezone
+   * Returns UTC timestamps for the start and end of "today" in user's local time
+   */
+  private getTodayInTimezone(timezone: string): {
+    startOfDay: Date;
+    endOfDay: Date;
+  } {
+    try {
+      // Get current time in user's timezone
+      const now = new Date();
+      const userLocalTime = toZonedTime(now, timezone);
+
+      // Get start and end of day in user's local time
+      const startOfDayLocal = startOfDay(userLocalTime);
+      const endOfDayLocal = endOfDay(userLocalTime);
+
+      // Convert back to UTC for database queries
+      const startOfDayUTC = fromZonedTime(startOfDayLocal, timezone);
+      const endOfDayUTC = fromZonedTime(endOfDayLocal, timezone);
+
+      // console.log('Timezone calculation:', {
+      //   timezone,
+      //   userLocalTime: userLocalTime.toISOString(),
+      //   startOfDayUTC: startOfDayUTC.toISOString(),
+      //   endOfDayUTC: endOfDayUTC.toISOString(),
+      // });
+
+      return {
+        startOfDay: startOfDayUTC,
+        endOfDay: endOfDayUTC,
+      };
+    } catch (error) {
+      console.error('Error parsing timezone:', timezone, error);
+      // Fallback to UTC
+      const now = new Date();
+      return {
+        startOfDay: startOfDay(now),
+        endOfDay: endOfDay(now),
+      };
+    }
+  }
+
   private calculateOverallMood(steps: { mood: number }[]): number {
-    // this needs to be a rounded whole number
     const sum = steps.reduce((acc, step) => acc + step.mood, 0);
     const average = sum / steps.length;
     return Math.round(average);
-  }
-
-  private getStartOfDay(date: Date): Date {
-    const normalized = new Date(date);
-    normalized.setHours(0, 0, 0, 0);
-    return normalized;
   }
 }
