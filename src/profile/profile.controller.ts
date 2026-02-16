@@ -10,6 +10,7 @@ import {
   BadRequestException,
   UploadedFile,
   UseInterceptors,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -147,5 +148,10 @@ export class ProfileController {
     @Session() session: UserSession,
   ): Promise<OnboardingStatusResponse> {
     return this.profileService.getOnboardingStatus(session.user.id);
+  }
+
+  @Delete('delete')
+  async deleteProfile(@Session() session: UserSession) {
+    return this.profileService.deleteProfile(session.user.id);
   }
 }

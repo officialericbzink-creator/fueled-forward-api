@@ -261,4 +261,22 @@ export class ProfileService {
 
     return { success: true };
   }
+
+  async deleteProfile(userId: string) {
+    try {
+      await this.db.message.deleteMany({ where: { conversation: { userId } } });
+      await this.db.conversation.delete({ where: { userId } });
+      await this.db.checkIn.deleteMany({ where: { userId } });
+      await this.db.dailyGoal.deleteMany({ where: { userId } });
+      await this.db.profile.delete({ where: { userId } });
+      await this.db.user.delete({ where: { id: userId } });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting profile for user', userId, error);
+      throw new BadRequestException(
+        `Failed to delete profile: ${error.message}`,
+      );
+    }
+  }
 }
