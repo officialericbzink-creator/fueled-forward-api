@@ -1,9 +1,6 @@
-import { Controller, Delete, Get, UseGuards } from '@nestjs/common';
-import {
-  AuthGuard,
-  Session,
-  type UserSession,
-} from '@thallesp/nestjs-better-auth';
+import { Controller, Delete, Get, Session, UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
+import type { UserSession } from 'src/auth/auth.types';
 import { AIChatService } from './chat.service';
 
 @Controller('chat')

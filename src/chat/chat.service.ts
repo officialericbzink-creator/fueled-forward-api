@@ -275,10 +275,12 @@ export class AIChatService {
 
     // Build conversation history with proper types
     const messages: MessageParam[] = [
-      ...context.conversationHistory.map((msg) => ({
-        role: msg.role === 'USER' ? 'user' : 'assistant',
-        content: msg.content,
-      })),
+      ...context.conversationHistory.map(
+        (msg): MessageParam => ({
+          role: msg.role === 'USER' ? ('user' as const) : ('assistant' as const),
+          content: msg.content,
+        }),
+      ),
       {
         role: 'user' as const,
         content: userMessage,

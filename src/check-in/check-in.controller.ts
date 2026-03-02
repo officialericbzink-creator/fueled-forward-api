@@ -8,12 +8,10 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import {
-  AuthGuard,
   Session,
-  type UserSession,
-} from '@thallesp/nestjs-better-auth';
+} from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
+import type { UserSession } from 'src/auth/auth.types';
 import { CheckInService } from './check-in.service';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { GetHistoryQueryDto } from './dto/get-history-query.dto';

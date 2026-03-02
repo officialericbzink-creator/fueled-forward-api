@@ -1,6 +1,6 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { AppService } from './app.service';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous } from 'src/auth/allow-anonymous.decorator';
 
 @Controller()
 export class AppController {

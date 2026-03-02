@@ -11,7 +11,8 @@ import {
   Session,
 } from '@nestjs/common';
 import { GoalsService } from './goals.service';
-import { AuthGuard, type UserSession } from '@thallesp/nestjs-better-auth';
+import { AuthGuard } from 'src/auth/auth.guard';
+import type { UserSession } from 'src/auth/auth.types';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { GetRecommendationsQueryDto } from './dto/get-goal-recommendations.dto';
 
