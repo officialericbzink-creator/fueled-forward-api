@@ -2,6 +2,7 @@ import { Catch } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { MulterError } from 'multer';
 import { getMaxAvatarUploadBytes } from 'src/media/media-upload.validation';
+import { buildApiErrorBody } from 'src/common/errors/error-response';
 
 @Catch(MulterError)
 export class MulterExceptionFilter implements ExceptionFilter {
@@ -11,6 +12,7 @@ export class MulterExceptionFilter implements ExceptionFilter {
       status: (code: number) => any;
       json: (body: unknown) => any;
     }>();
+    const req = ctx.getRequest<{ originalUrl?: string; url?: string }>();
 
     const statusCode = 400;
 
@@ -22,10 +24,13 @@ export class MulterExceptionFilter implements ExceptionFilter {
       message = 'Unexpected file field. Expected field name: file.';
     }
 
-    return res.status(statusCode).json({
-      statusCode,
-      message,
-      error: 'Bad Request',
-    });
+    return res.status(statusCode).json(
+      buildApiErrorBody({
+        statusCode,
+        message,
+        error: 'Bad Request',
+        path: req?.originalUrl ?? req?.url,
+      }),
+    );
   }
 }
