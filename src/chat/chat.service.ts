@@ -276,9 +276,7 @@ export class AIChatService {
     // Build conversation history with proper types
     const messages: MessageParam[] = [
       ...context.conversationHistory.map((msg) => ({
-        role: (msg.role === 'USER' ? 'user' : 'assistant') as
-          | 'user'
-          | 'assistant',
+        role: msg.role === 'USER' ? 'user' : 'assistant',
         content: msg.content,
       })),
       {
@@ -511,7 +509,7 @@ export class AIChatService {
         );
 
         // Don't retry on certain errors
-        const apiError = error as any;
+        const apiError = error;
         if (
           apiError.status === 400 ||
           apiError.status === 401 ||

@@ -22,7 +22,9 @@ interface SendMessageDto {
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // TODO: Update with your app's URL in production
+    origin: process.env.WS_CORS_ORIGIN
+      ? process.env.WS_CORS_ORIGIN.split(',').map((s) => s.trim())
+      : '*',
   },
 })
 export class ChatGateway

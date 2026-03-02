@@ -11,13 +11,13 @@ import {
   UploadedFile,
   UseInterceptors,
   Delete,
+  Session,
+  Req,
+  UseFilters,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  AuthGuard,
-  Session,
-  type UserSession,
-} from '@thallesp/nestjs-better-auth';
+import { AuthGuard } from 'src/auth/auth.guard';
+import type { UserSession } from 'src/auth/auth.types';
 import { ProfileService } from './profile.service';
 import {
   OnboardingStep0Dto,
@@ -32,6 +32,11 @@ import {
   OnboardingStatusResponse,
 } from './dto/onboarding-response.dto';
 import { MediaService } from 'src/media/media.service';
+import {
+  createAvatarMulterOptions,
+  extensionForMimeType,
+} from 'src/media/media-upload.validation';
+import { MulterExceptionFilter } from 'src/common/filters/multer-exception.filter';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -66,15 +71,23 @@ export class ProfileController {
   }
 
   @Post('avatar')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', createAvatarMulterOptions()))
+  @UseFilters(MulterExceptionFilter)
   async updateAvatar(
     @UploadedFile() file: Express.Multer.File,
     @Session() session: UserSession,
+    @Req() req: { fileValidationError?: string },
   ) {
     try {
+      if (req.fileValidationError) {
+        throw new BadRequestException(req.fileValidationError);
+      }
+      if (!file) {
+        throw new BadRequestException('File is required.');
+      }
       const key = this.mediaService.generateAvatarKey(
         session.user.id,
-        file.originalname,
+        extensionForMimeType(file.mimetype),
       );
       const url = await this.mediaService.uploadFile(
         key,
@@ -92,8 +105,9 @@ export class ProfileController {
           userId: session.user.id,
         },
       };
-    } catch (error) {
-      throw new BadRequestException(`Avatar upload failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(`Avatar upload failed: ${message}`);
     }
   }
 

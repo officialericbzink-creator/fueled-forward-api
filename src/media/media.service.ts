@@ -50,9 +50,10 @@ export class MediaService {
       this.logger.log(`File uploaded: ${key}`);
 
       return this.getPublicUrl(key);
-    } catch (error) {
-      this.logger.error(`Failed to upload file ${key}:`, error);
-      throw new Error(`Upload failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to upload file ${key}:`, error as any);
+      throw new Error(`Upload failed: ${message}`);
     }
   }
 
@@ -72,9 +73,10 @@ export class MediaService {
 
       await this.s3Client.send(command);
       this.logger.log(`File deleted: ${finalKey}`);
-    } catch (error) {
-      this.logger.error(`Failed to delete file ${finalKey}:`, error);
-      throw new Error(`Delete failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to delete file ${finalKey}:`, error as any);
+      throw new Error(`Delete failed: ${message}`);
     }
   }
 
@@ -94,11 +96,13 @@ export class MediaService {
   /**
    * Generate avatar key: /avatars/:userId/avatar.jpg
    */
-  generateAvatarKey(userId: string, originalName: string): string {
+  generateAvatarKey(userId: string, extension: string): string {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
-    return `user-avatars/${userId}/${timestamp}-${randomString}.${extension}`;
+    const safeExt = (extension || 'jpg')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    return `user-avatars/${userId}/${timestamp}-${randomString}.${safeExt || 'jpg'}`;
   }
 
   /**
@@ -109,6 +113,13 @@ export class MediaService {
     const randomString = Math.random().toString(36).substring(2, 8);
     const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
     const baseName = originalName.replace(/\.[^/.]+$/, '');
-    return `brand-assets/${baseName}-${timestamp}-${randomString}.${extension}`;
+    const safeBaseName = baseName
+      .replace(/[\\/]/g, '-')
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 80);
+    const safeExt = extension.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `brand-assets/${safeBaseName || 'upload'}-${timestamp}-${randomString}.${safeExt || 'jpg'}`;
   }
 }
