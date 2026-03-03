@@ -38,6 +38,7 @@ export class ChatGateway
     string,
     { count: number; resetAt: number }
   >();
+  private rateLimitClient?: ReturnType<typeof createClient>;
 
   constructor(private readonly aiChatService: AIChatService) {}
 
@@ -46,11 +47,17 @@ export class ChatGateway
 
     if (redisUrl) {
       try {
-        const pubClient = createClient({ url: redisUrl });
-        const subClient = pubClient.duplicate();
+        const baseClient = createClient({ url: redisUrl });
+        const pubClient = baseClient.duplicate();
+        const subClient = baseClient.duplicate();
 
-        await Promise.all([pubClient.connect(), subClient.connect()]);
+        await Promise.all([
+          baseClient.connect(),
+          pubClient.connect(),
+          subClient.connect(),
+        ]);
 
+        this.rateLimitClient = baseClient;
         this.server.adapter(createAdapter(pubClient, subClient));
         this.logger.log('Redis adapter connected successfully');
       } catch (error) {
@@ -97,7 +104,29 @@ export class ChatGateway
     );
   }
 
-  private checkRateLimit(userId: string): boolean {
+  private async checkRateLimit(userId: string): Promise<boolean> {
+    const windowMs = Number(process.env.CHAT_RATE_LIMIT_WINDOW_MS ?? 60_000);
+    const max = Number(process.env.CHAT_RATE_LIMIT_MAX ?? 10);
+
+    if (this.rateLimitClient?.isOpen) {
+      try {
+        const bucket = Math.floor(Date.now() / windowMs);
+        const key = `rl:ws:chat:${userId}:${bucket}`;
+
+        const count = await this.rateLimitClient.incr(key);
+        if (count === 1) {
+          const expireSeconds = Math.ceil(windowMs / 1000) + 5;
+          await this.rateLimitClient.expire(key, expireSeconds);
+        }
+
+        return count <= max;
+      } catch (error) {
+        this.logger.warn(
+          `Redis rate limit failed, falling back to in-memory: ${error.message}`,
+        );
+      }
+    }
+
     const now = Date.now();
     const userLimit = this.userMessageCounts.get(userId);
 
@@ -105,13 +134,12 @@ export class ChatGateway
       // Reset counter every minute
       this.userMessageCounts.set(userId, {
         count: 1,
-        resetAt: now + 60000, // 1 minute
+        resetAt: now + windowMs,
       });
       return true;
     }
 
-    if (userLimit.count >= 10) {
-      // Max 10 messages per minute
+    if (userLimit.count >= max) {
       return false;
     }
 
@@ -125,14 +153,20 @@ export class ChatGateway
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      const { userId, message } = data;
+      const clientUserId = client.data.userId as string | undefined;
+      const payloadUserId = data?.userId;
+      const message = data?.message;
 
-      if (!this.checkRateLimit(userId)) {
-        throw new WsException('Too many messages. Please wait a moment.');
+      if (!clientUserId) {
+        throw new WsException('Unauthorized: missing userId');
       }
 
-      if (userId !== client.data.userId) {
+      if (payloadUserId && payloadUserId !== clientUserId) {
         throw new WsException('Unauthorized: userId mismatch');
+      }
+
+      if (!(await this.checkRateLimit(clientUserId))) {
+        throw new WsException('Too many messages. Please wait a moment.');
       }
 
       if (!message || message.trim().length === 0) {
@@ -140,21 +174,21 @@ export class ChatGateway
       }
 
       this.logger.log(
-        `Message from user ${userId}: ${message.substring(0, 50)}...`,
+        `Message from user ${clientUserId}: ${message.substring(0, 50)}...`,
       );
 
       // Emit typing indicator
-      this.server.to(`user:${userId}`).emit('typing', { typing: true });
+      this.server.to(`user:${clientUserId}`).emit('typing', { typing: true });
 
       try {
         // Call AI service
         const result = await this.aiChatService.handleUserMessage({
-          userId,
+          userId: clientUserId,
           message,
         });
 
         // Send AI response
-        this.server.to(`user:${userId}`).emit('messageResponse', {
+        this.server.to(`user:${clientUserId}`).emit('messageResponse', {
           role: 'assistant',
           content: result.assistantMessage,
           messageId: result.messageId,
@@ -164,11 +198,11 @@ export class ChatGateway
         });
 
         this.logger.log(
-          `Response sent to user ${userId} - Tokens: ${result.tokens.inputTokens}/${result.tokens.outputTokens}`,
+          `Response sent to user ${clientUserId} - Tokens: ${result.tokens.inputTokens}/${result.tokens.outputTokens}`,
         );
       } finally {
         // Always stop typing indicator
-        this.server.to(`user:${userId}`).emit('typing', { typing: false });
+        this.server.to(`user:${clientUserId}`).emit('typing', { typing: false });
       }
 
       return {
