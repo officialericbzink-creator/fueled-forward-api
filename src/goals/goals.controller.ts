@@ -10,12 +10,20 @@ import {
   UseGuards,
   Session,
 } from '@nestjs/common';
+import {
+  ApiCookieAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import type { UserSession } from 'src/auth/auth.types';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { GetRecommendationsQueryDto } from './dto/get-goal-recommendations.dto';
 
+@ApiTags('goals')
+@ApiCookieAuth('better-auth.session_token')
 @UseGuards(AuthGuard)
 @Controller('goals')
 export class GoalsController {
@@ -26,6 +34,14 @@ export class GoalsController {
    * Get all active goals for today
    */
   @Get('')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        data: [{ id: 'goal_id', goal: 'Drink water', completed: false }],
+        count: 1,
+      },
+    },
+  })
   async getGoals(@Session() session: UserSession) {
     const goals = await this.goalsService.getTodaysGoals(session.user.id);
     return {
@@ -39,6 +55,14 @@ export class GoalsController {
    * Create a new goal
    */
   @Post('')
+  @ApiCreatedResponse({
+    schema: {
+      example: {
+        data: { id: 'goal_id', goal: 'Drink water', completed: false },
+        message: 'Goal created successfully',
+      },
+    },
+  })
   async createGoal(
     @Session() session: UserSession,
     @Body() createGoalDto: CreateGoalDto,
@@ -58,6 +82,14 @@ export class GoalsController {
    * Toggle goal completion status
    */
   @Patch(':id/toggle')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        data: { id: 'goal_id', goal: 'Drink water', completed: true },
+        message: 'Goal updated successfully',
+      },
+    },
+  })
   async toggleGoal(
     @Session() session: UserSession,
     @Param('id') goalId: string,
@@ -77,6 +109,14 @@ export class GoalsController {
    * Get random goal recommendations
    */
   @Get('recommendations')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        data: [{ goal: 'Take a short walk' }],
+        count: 1,
+      },
+    },
+  })
   async getGoalRecommendations(@Query() query: GetRecommendationsQueryDto) {
     const recommendations = this.goalsService.getGoalRecommendations(
       query.count,
@@ -92,6 +132,11 @@ export class GoalsController {
    * Delete a goal
    */
   @Delete(':id')
+  @ApiOkResponse({
+    schema: {
+      example: { success: true },
+    },
+  })
   async deleteGoal(
     @Session() session: UserSession,
     @Param('id') goalId: string,

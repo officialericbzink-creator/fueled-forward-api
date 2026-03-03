@@ -6,6 +6,8 @@ import { auth } from './lib/auth';
 import type { NextFunction, Request, Response } from 'express';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { buildApiErrorBody } from './common/errors/error-response';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { addBetterAuthPaths } from './docs/better-auth.openapi';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -23,6 +25,30 @@ async function bootstrap() {
 
   // Centralized error handling for Nest routes.
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  const swaggerEnabled = process.env.NODE_ENV !== 'production';
+
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('Fueled Forward API')
+      .setDescription('Fueled Forward REST API')
+      .setVersion('0.0.1')
+      .addCookieAuth('better-auth.session_token', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'better-auth.session_token',
+      })
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    addBetterAuthPaths(document, { basePath: '/api/auth' });
+    SwaggerModule.setup('docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        withCredentials: true,
+      },
+    });
+  }
 
   // Ensure all Nest routes are registered before adding Express error middleware.
   await app.init();

@@ -10,6 +10,12 @@ import {
   HttpStatus,
   Session,
 } from '@nestjs/common';
+import {
+  ApiCookieAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/auth.guard';
 import type { UserSession } from 'src/auth/auth.types';
 import { CheckInService } from './check-in.service';
@@ -18,6 +24,8 @@ import { GetHistoryQueryDto } from './dto/get-history-query.dto';
 import { CheckInParamDto } from './dto/check-in-param.dto';
 import { Timezone } from '../common/decorators/timezone.decorators';
 
+@ApiTags('check-in')
+@ApiCookieAuth('better-auth.session_token')
 @Controller('check-in')
 @UseGuards(AuthGuard)
 export class CheckInController {
@@ -28,6 +36,14 @@ export class CheckInController {
    * Get user's check-in history with optional limit
    */
   @Get('history')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        data: [{ id: 'checkin_id', date: '2026-03-03T00:00:00.000Z' }],
+        count: 1,
+      },
+    },
+  })
   async getCheckInHistory(
     @Session() session: UserSession,
     @Query() query: GetHistoryQueryDto,
@@ -49,6 +65,9 @@ export class CheckInController {
    * Get today's check-in for the authenticated user
    */
   @Get('today')
+  @ApiOkResponse({
+    schema: { example: { data: { id: 'checkin_id', date: '2026-03-03' } } },
+  })
   async getTodaysCheckIn(
     @Session() session: UserSession,
     @Timezone() timezone: string,
@@ -67,6 +86,7 @@ export class CheckInController {
    * Check if user has checked in today
    */
   @Get('has-checked-in-today')
+  @ApiOkResponse({ schema: { example: { hasCheckedIn: true } } })
   async hasCheckedInToday(
     @Session() session: UserSession,
     @Timezone() timezone: string,
@@ -85,6 +105,9 @@ export class CheckInController {
    * Get a specific check-in by ID
    */
   @Get(':id')
+  @ApiOkResponse({
+    schema: { example: { data: { id: 'checkin_id', date: '2026-03-03' } } },
+  })
   async getCheckInById(
     @Param() params: CheckInParamDto,
     @Session() session: UserSession,
@@ -104,6 +127,14 @@ export class CheckInController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiCreatedResponse({
+    schema: {
+      example: {
+        message: 'Check-in created successfully',
+        data: { id: 'checkin_id', date: '2026-03-03' },
+      },
+    },
+  })
   async createCheckIn(
     @Body() dto: CreateCheckInDto,
     @Session() session: UserSession,
@@ -127,6 +158,9 @@ export class CheckInController {
 
   @Post('reminder-time')
   @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    schema: { example: { message: 'Check-in reminder time updated successfully' } },
+  })
   async setCheckInReminderTime(
     @Body('reminderTime') reminderTime: string,
     @Session() session: UserSession,

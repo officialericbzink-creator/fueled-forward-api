@@ -15,6 +15,16 @@ import {
   Req,
   UseFilters,
 } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCookieAuth,
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from 'src/auth/auth.guard';
 import type { UserSession } from 'src/auth/auth.types';
@@ -31,6 +41,8 @@ import {
   OnboardingStepResponse,
   OnboardingStatusResponse,
 } from './dto/onboarding-response.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UploadAvatarDto } from './dto/upload-avatar.dto';
 import { MediaService } from 'src/media/media.service';
 import {
   createAvatarMulterOptions,
@@ -38,6 +50,16 @@ import {
 } from 'src/media/media-upload.validation';
 import { MulterExceptionFilter } from 'src/common/filters/multer-exception.filter';
 
+@ApiTags('profile')
+@ApiCookieAuth('better-auth.session_token')
+@ApiExtraModels(
+  OnboardingStep0Dto,
+  OnboardingStep1Dto,
+  OnboardingStep2Dto,
+  OnboardingStep3Dto,
+  OnboardingStep4Dto,
+  OnboardingStep5Dto,
+)
 @Controller('profile')
 @UseGuards(AuthGuard)
 export class ProfileController {
@@ -47,30 +69,53 @@ export class ProfileController {
   ) {}
 
   @Get('me')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        id: 'user_id',
+        name: 'John Doe',
+        email: 'john@example.com',
+        image: 'https://example.com/avatar.png',
+      },
+    },
+  })
   async getProfile(@Session() session: UserSession) {
     return this.profileService.getUserProfile(session.user.id);
   }
 
   @Post('update')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        id: 'user_id',
+        name: 'John Doe',
+        image: 'https://example.com/avatar.png',
+      },
+    },
+  })
   async updateProfile(
     @Session() session: UserSession,
-    @Body()
-    data: {
-      name?: string;
-      image?: string;
-      profile?: {
-        bio?: string;
-        struggles?: string[];
-        inTherapy?: boolean;
-        therapyDetails?: string;
-        struggleNotes?: string;
-      };
-    },
+    @Body() data: UpdateProfileDto,
   ) {
     return this.profileService.updateProfile(session.user.id, data);
   }
 
   @Post('avatar')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UploadAvatarDto })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        success: true,
+        data: {
+          key: 'user-avatars/user_id/123.jpg',
+          url: 'https://example.com/user-avatars/user_id/123.jpg',
+          type: 'AVATAR',
+          userId: 'user_id',
+        },
+      },
+    },
+  })
   @UseInterceptors(FileInterceptor('file', createAvatarMulterOptions()))
   @UseFilters(MulterExceptionFilter)
   async updateAvatar(
@@ -112,15 +157,40 @@ export class ProfileController {
   }
 
   @Post('onboarding/complete')
+  @ApiOkResponse({ schema: { example: { success: true } } })
   async completeOnboarding(@Session() session: UserSession) {
     return this.profileService.completeOnboarding(session.user.id);
   }
 
   @Post('onboarding/:step')
+  @ApiParam({
+    name: 'step',
+    required: true,
+    schema: { type: 'integer', minimum: 0, maximum: 5 },
+  })
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(OnboardingStep0Dto) },
+        { $ref: getSchemaPath(OnboardingStep1Dto) },
+        { $ref: getSchemaPath(OnboardingStep2Dto) },
+        { $ref: getSchemaPath(OnboardingStep3Dto) },
+        { $ref: getSchemaPath(OnboardingStep4Dto) },
+        { $ref: getSchemaPath(OnboardingStep5Dto) },
+      ],
+    },
+  })
   async completeOnboardingStep(
     @Session() session: UserSession,
     @Param('step', ParseIntPipe) step: number,
-    @Body() body: any,
+    @Body()
+    body:
+      | OnboardingStep0Dto
+      | OnboardingStep1Dto
+      | OnboardingStep2Dto
+      | OnboardingStep3Dto
+      | OnboardingStep4Dto
+      | OnboardingStep5Dto,
   ): Promise<OnboardingStepResponse> {
     // Validate step number (0-5)
     if (step < 0 || step > 5) {
@@ -158,6 +228,11 @@ export class ProfileController {
   }
 
   @Get('onboarding/status')
+  @ApiOkResponse({
+    schema: {
+      example: { onboardingStep: 0, completedOnboarding: false },
+    },
+  })
   async getOnboardingStatus(
     @Session() session: UserSession,
   ): Promise<OnboardingStatusResponse> {
@@ -165,6 +240,7 @@ export class ProfileController {
   }
 
   @Delete('delete')
+  @ApiOkResponse({ schema: { example: { success: true } } })
   async deleteProfile(@Session() session: UserSession) {
     return this.profileService.deleteProfile(session.user.id);
   }
