@@ -9,6 +9,7 @@ import { ProfileModule } from './profile/profile.module';
 import { EmailModule } from './email/email.module';
 import { ChatModule } from './chat/chat.module';
 import { MediaModule } from './media/media.module';
+import { EntriesModule } from './entries/entries.module';
 import { AuthGuard } from 'src/auth/auth.guard';
 
 @Module({
@@ -20,6 +21,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
     EmailModule,
     ChatModule,
     MediaModule,
+    EntriesModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, AuthGuard],

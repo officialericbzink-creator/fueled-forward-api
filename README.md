@@ -44,6 +44,16 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## API documentation (Swagger)
+
+When running in **development** (`NODE_ENV !== 'production'`), Swagger UI is available at:
+
+**http://localhost:3000/docs**
+
+(Use your app’s port if `PORT` is set differently.)
+
+From there you can try endpoints (including **entries**: `POST /entries`, `GET /entries`, `GET /entries/recent`, `DELETE /entries/:id`). Entry responses include `summary` and optional `insights` (emotions, sentiment, crisis_level, etc.). Cookie auth is required for protected routes; authorize with your session cookie if needed.
+
 ## Run tests
 
 ```bash

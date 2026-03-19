@@ -38,10 +38,26 @@ model User {
   checkIns     CheckIn[]
   dailyGoals   DailyGoal[]
   profile      Profile?
-  pushTokens   PushToken[]
-  conversation Conversation?
+  pushTokens     PushToken[]
+  conversation   Conversation?
+  journalEntries JournalEntry[]
 
   @@map("user")
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  content   String   @db.Text
+  summary   String   @db.Text
+  insights  Json?    // emotions, sentiment, crisis_level, crisis_signals, needs_attention
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("journal_entries")
 }
 
 model Session {
