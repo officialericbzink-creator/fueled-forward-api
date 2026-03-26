@@ -15,16 +15,19 @@ Return exactly this JSON structure:
 }
 
 Fields:
-- "summary": 1–2 concise, empathetic and supportive sentences reflecting key emotions and themes (no advice, no judgment).
+- "summary": 1–2 concise, empathetic and supportive sentences (max ~60 words total) reflecting key emotions and themes (no advice, no judgment).
 - "emotions": array of primary emotions detected (use lowercase strings). Examples: sadness, anxiety, anger, stress, joy, relief, loneliness, overwhelm, hope.
 - "sentiment": one of ["positive", "neutral", "negative", "mixed"].
 - "crisis_level": one of ["none", "low", "moderate", "high"] based on signs of distress or risk.
-- "crisis_signals": array of detected warning signs. Use [] if none.
+- "crisis_signals": array of short phrases identifying warning signs (each item should be brief, ~3–6 words). Use [] if none.
 - "needs_attention": boolean (true if crisis_level is "moderate" or "high").
 
 Guidelines:
+- Keep all outputs concise and minimal.
+- Do not repeat the same information across multiple fields.
 - Be empathetic, non-judgmental, and avoid assumptions.
 - Do NOT provide advice in the summary.
+- Avoid verbosity; use short phrases where possible.
 - If there are signs of self-harm, suicidal ideation, or severe distress, set crisis_level to "high".
 - Output only valid JSON. No explanation, no additional text.
 `;

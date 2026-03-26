@@ -41,8 +41,26 @@ model User {
   pushTokens     PushToken[]
   conversation   Conversation?
   journalEntries JournalEntry[]
+  snapshots      UserSnapshot[]
 
   @@map("user")
+}
+
+model UserSnapshot {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// [{ "label": string, "why": string }, ...] — exactly 3 items from AI; "why" is one short supporting sentence.
+  struggles     Json
+  positives     Json
+  /// Narrative summary for the next snapshot run (AI field context_digest); included in the next generate payload with fresh window-bound data.
+  contextDigest String?  @db.Text
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("user_snapshots")
 }
 
 model JournalEntry {
