@@ -1,0 +1,45 @@
+name: Deploy Lambda
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+
+jobs:
+  compute:
+    name: Compute Build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+
+    permissions:  # ✅ REQUIRED for OIDC
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ vars.ACCOUNT_ID }}:role/fueledfwd-${{ inputs.environment_name }}-github-actions
+          role-session-name: fueledfwd-${{ inputs.environment_name }}-github-actions
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/ff-api:latest
+      - name: Deploy to Amazon ECS service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        service: backend
+        cluster: fueledfwd-${{ inputs.environment_name }}-cluster
+        wait-for-service-stability: true
+        force-new-deployment: true
